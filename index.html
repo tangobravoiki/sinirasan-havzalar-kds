@@ -202,6 +202,7 @@
             const [loading, setLoading] = useState(false);
             const [alertLevel, setAlertLevel] = useState('NORMAL');
             const [showMethodology, setShowMethodology] = useState(false);
+            const [showDataSources, setShowDataSources] = useState(false);
             const mapInstance = useRef(null);
             const markersRef = useRef([]);
 
@@ -410,6 +411,11 @@
                                     title: 'Sistemin matematiksel altyapısını ve hesaplama yöntemlerini göster.'
                                 }, 'METODOLOJİ'),
                                 React.createElement('button', {
+                                    onClick: () => setShowDataSources(true),
+                                    className: 'bg-panel-alt border border-main text-xs font-medium px-3 py-3 outline-none hover:border-accent hover:text-accent transition-all cursor-pointer text-secondary',
+                                    title: 'Sistemde kullanılan API ve açık kaynak istihbarat veri setlerini göster.'
+                                }, 'VERİ KAYNAKLARI'),
+                                React.createElement('button', {
                                     onClick: () => exportReport('json'),
                                     className: 'bg-panel-alt border border-main text-xs font-medium px-3 py-3 outline-none hover:border-accent hover:text-accent transition-all cursor-pointer text-secondary',
                                     title: 'Mevcut analitik durumu JSON formatında dışa aktar.'
@@ -477,6 +483,54 @@
                                     React.createElement('li', { className: 'pl-4 -indent-4' }, 'Omand, D., Bartlett, J., & Miller, C. (2012). Introducing social media intelligence (SOCMINT). Intelligence and National Security, 27(6), 801-823. https://doi.org/10.1080/02684527.2012.716965'),
                                     React.createElement('li', { className: 'pl-4 -indent-4' }, 'Turban, E., Aronson, J. E., & Liang, T. P. (2005). Decision support systems and intelligent systems. Pearson Prentice Hall.'),
                                     React.createElement('li', { className: 'pl-4 -indent-4' }, 'UNESCO. (2023). United Nations world water development report: Partnerships and cooperation for water. UN-Water.')
+                                )
+                            )
+                        )
+                    )
+                ),
+
+                // Veri Kaynakları Modalı (Modal Katmanı)
+                showDataSources && React.createElement('div', { className: 'fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4' },
+                    React.createElement('div', { className: 'bg-panel border border-main rounded max-w-4xl w-full max-h-[90vh] overflow-y-auto p-8 relative shadow-2xl text-sm text-secondary' },
+                        React.createElement('button', {
+                            onClick: () => setShowDataSources(false),
+                            className: 'absolute top-6 right-6 text-secondary hover:text-danger text-2xl font-bold leading-none'
+                        }, '\u00D7'),
+                        
+                        React.createElement('h2', { className: 'text-xl font-bold text-accent mb-6 tracking-widest border-b border-main pb-4' }, 'SİSTEM VERİ KAYNAKLARI VE ENTEGRASYON MİMARİSİ'),
+                        
+                        React.createElement('div', { className: 'space-y-6 text-justify leading-relaxed' },
+                            React.createElement('p', null, 'Karar Destek Sistemi (KDS), hidro-meteorolojik dinamikleri, coğrafi istihbaratı ve sosyo-ekonomik göstergeleri "360 Derece Güvenlik" konsepti çerçevesinde tek bir platformda birleştirmektedir. Aşağıda, asenkron motor tarafından gerçek zamanlı olarak sorgulanan ve analitik modellemelerde kullanılan API uç noktaları ve veri setleri listelenmiştir:'),
+                            
+                            React.createElement('div', { className: 'space-y-2' },
+                                React.createElement('h3', { className: 'text-md font-bold text-white uppercase' }, '1. Hidro-Meteorolojik ve Çevresel İzleme (Open-Meteo)'),
+                                React.createElement('p', null, 'Sistem, atmosferik ve hidrolojik durumun anlık tespiti için açık kaynaklı Open-Meteo API (v1) servislerini kullanmaktadır. Çekilen parametreler arasında sıcaklık (2m), evapotranspirasyon (ET0), toprak nemi (0-7cm) ve kar yağışı yer almaktadır. Ayrıca taşkın potansiyelini ölçmek adına GloFAS tabanlı Flood API üzerinden günlük nehir debisi (river_discharge) verileri sisteme entegre edilmektedir.')
+                            ),
+
+                            React.createElement('div', { className: 'space-y-2' },
+                                React.createElement('h3', { className: 'text-md font-bold text-white uppercase' }, '2. Spektral ve Uzay İstihbaratı (NASA FIRMS)'),
+                                React.createElement('p', null, 'Jeopolitik kriz bölgelerindeki kinetik olayların (çatışmalar, patlamalar) ve iklim kaynaklı ekstrem şokların (orman yangınları) tespiti için NASA FIRMS (Fire Information for Resource Management System) VIIRS/MODIS sensör verileri kullanılmaktadır. Bu veriler, sistemde "Termal Ceza" skorunun kalibrasyonunu sağlamaktadır.')
+                            ),
+
+                            React.createElement('div', { className: 'space-y-2' },
+                                React.createElement('h3', { className: 'text-md font-bold text-white uppercase' }, '3. Hibrit OSINT ve İnsani Kriz Verileri'),
+                                React.createElement('p', null, 'Bilgi kirliliğini (disinformation) ve algoritmik yanlılığı önlemek amacıyla çapraz doğrulama yöntemi uygulanmaktadır. ReliefWeb (BM İnsani Yardım Koordinasyon Ofisi - OCHA) API\'si üzerinden insani kriz ve afet uyarıları çekilirken; Google News, Bing News ve Yahoo News üzerinden bölgesel hidropolitik gelişmelere dair açık kaynak haber akışları RSS-to-JSON protokolleriyle taranmaktadır.')
+                            ),
+
+                            React.createElement('div', { className: 'space-y-2' },
+                                React.createElement('h3', { className: 'text-md font-bold text-white uppercase' }, '4. Demografik ve Kurumsal Referans Verileri'),
+                                React.createElement('p', null, 'Havza nüfus projeksiyonları ve su tüketim modellerinde, Dışa bağımlılığı azaltmak ve resmi veri hiyerarşisine uymak amacıyla Türkiye İstatistik Kurumu (TÜİK) Adrese Dayalı Nüfus Kayıt Sistemi (ADNKS) verileri statik baz çizgisi olarak kullanılmaktadır. "Kurumsal Su Kaynakları İstatistikleri" bölümü ise Devlet Su İşleri (DSİ) Genel Müdürlüğü\'nün 2024 yılı idare faaliyet raporlarına dayanmaktadır.')
+                            ),
+
+                            React.createElement('div', { className: 'mt-8 pt-6 border-t border-gray-800' },
+                                React.createElement('h3', { className: 'text-sm font-bold text-white uppercase mb-4' }, 'Kaynaklar (APA 7)'),
+                                React.createElement('ul', { className: 'text-[11px] text-gray-500 space-y-3' },
+                                    React.createElement('li', { className: 'pl-4 -indent-4' }, 'DSİ. (2025). Devlet Su İşleri Genel Müdürlüğü 2024 Yılı İdare Faaliyet Raporu. Tarım ve Orman Bakanlığı. https://www.dsi.gov.tr/'),
+                                    React.createElement('li', { className: 'pl-4 -indent-4' }, 'NASA. (2024). Fire Information for Resource Management System (FIRMS) API. National Aeronautics and Space Administration. https://firms.modaps.eosdis.nasa.gov/'),
+                                    React.createElement('li', { className: 'pl-4 -indent-4' }, 'Omand, D., Bartlett, J., & Miller, C. (2012). Introducing social media intelligence (SOCMINT). Intelligence and National Security, 27(6), 801-823.'),
+                                    React.createElement('li', { className: 'pl-4 -indent-4' }, 'Open-Meteo. (2024). Open-Source Weather API Documentation. https://open-meteo.com/'),
+                                    React.createElement('li', { className: 'pl-4 -indent-4' }, 'Türkiye İstatistik Kurumu [TÜİK]. (2025). Adrese Dayalı Nüfus Kayıt Sistemi (ADNKS) sonuçları. https://data.tuik.gov.tr/'),
+                                    React.createElement('li', { className: 'pl-4 -indent-4' }, 'UNOCHA. (2024). ReliefWeb API Documentation. United Nations Office for the Coordination of Humanitarian Affairs. https://api.reliefweb.int/')
                                 )
                             )
                         )
@@ -618,30 +672,6 @@
                                             onChange: (e) => handleSandboxChange(k, e.target.value),
                                             className: 'w-full slider-accent'
                                         })
-                                    )
-                                )
-                            )
-                        ),
-
-                        React.createElement('div', { className: 'panel p-6 border-l-4 border-accent', title: 'DSİ 2024 yılı resmi istatistiklerine ait doğrulanmış veri setleri.' },
-                            React.createElement('h3', { className: 'text-xs font-bold uppercase text-accent mb-6 flex justify-between' },
-                                React.createElement('span', null, 'DSİ 2024 Resmi Su Kaynakları İstatistikleri'),
-                                React.createElement('span', { className: 'text-[9px] text-secondary' }, 'DOĞRULANMIŞ REFERANS VERİ SETLERİ')
-                            ),
-                            React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-3 gap-6 max-h-64 overflow-y-auto pr-2' },
-                                DSI_CATALOG.kategoriler.map((kat, idx) =>
-                                    React.createElement('div', { key: idx, className: 'space-y-3' },
-                                        React.createElement('h4', { className: 'text-[10px] text-secondary uppercase font-bold border-b border-main pb-2' }, kat.kategori_adi),
-                                        React.createElement('ul', { className: 'space-y-2' },
-                                            kat.dosyalar.map((dosya, dIdx) =>
-                                                React.createElement('li', { key: dIdx, className: 'flex flex-col gap-1 bg-panel-alt p-2 rounded border border-main/50' },
-                                                    React.createElement('span', { className: 'text-[10px] text-gray-300' }, `${dosya.no} - ${dosya.baslik}`),
-                                                    dosya.url
-                                                        ? React.createElement('a', { href: dosya.url, target: '_blank', className: 'text-[9px] text-accent hover:text-accent-bright font-bold flex items-center gap-1', title: 'Resmi DSİ belgesine yönlendirir.' }, '🔗 DOSYAYI İNDİR / GÖRÜNTÜLE')
-                                                        : React.createElement('span', { className: 'text-[9px] text-danger font-bold italic', title: 'İlgili veri kaynağında ulaşılamamaktadır.' }, 'VERİ BULUNAMADI')
-                                                )
-                                            )
-                                        )
                                     )
                                 )
                             )
