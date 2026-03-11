@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SINIRAŞAN HAVZALAR | KDS v4.2</title>
+    <title>SINIRAŞAN HAVZALAR | KDS v4.4</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -53,7 +53,7 @@
         );
 
         const StatItem = ({ label, value, tooltip }) => {
-            const isInvalid = value === null || value === undefined || String(value).includes('null') || String(value).includes('undefined') || value === '--' || value === '--°C' || value === '%--' || value === '-- m³/s';
+            const isInvalid = value === null || value === undefined || String(value).includes('null') || String(value).includes('undefined') || value === '--' || value === '--°C' || value === '%--' || value === '-- m³/s' || value === '-- mm';
             const displayValue = isInvalid ? 'Veri Bulunamadı' : value;
             return React.createElement('div', { title: tooltip },
                 React.createElement('div', { className: 'text-[10px] text-secondary uppercase' }, label),
@@ -65,6 +65,7 @@
             { 
                 name: "Meriç-Ergene Havzası", lat: 41.6771, lon: 26.5559, cc: "TR", code: "MR-ER",
                 keywords: "Maritsa Evros Ergene water flood conflict",
+                tuik_pop: 1.54,
                 wef: { Demand: 1601.1, Supply: 2049.5, Cr: 0.35, alpha: 0.4, freq: 0.6 },
                 nato: { 
                     eta: [0.4, 0.3, 0.3],
@@ -76,6 +77,7 @@
             { 
                 name: "Fırat-Dicle Havzası", lat: 37.5226, lon: 38.2831, cc: "TR", code: "FR-DC",
                 keywords: "Euphrates Tigris water scarcity conflict",
+                tuik_pop: 9.85,
                 wef: { Demand: 4994.8, Supply: 3763.7, Cr: 0.5, alpha: 0.5, freq: 0.8 },
                 nato: { 
                     eta: [0.5, 0.2, 0.3],
@@ -87,6 +89,7 @@
             { 
                 name: "Aras-Kura Havzası", lat: 40.3541, lon: 43.1492, cc: "TR", code: "AR-KR",
                 keywords: "Aras Kura river management Araks",
+                tuik_pop: 1.12,
                 wef: { Demand: 388.5, Supply: 294.4, Cr: 0.25, alpha: 0.6, freq: 0.7 },
                 nato: { 
                     eta: [0.4, 0.3, 0.3],
@@ -98,6 +101,7 @@
             { 
                 name: "Asi (Orontes) Havzası", lat: 35.8455, lon: 36.3114, cc: "TR", code: "AS-OR",
                 keywords: "Orontes Asi river water drought Syria",
+                tuik_pop: 1.73,
                 wef: { Demand: 1100.0, Supply: 950.0, Cr: 0.4, alpha: 0.7, freq: 0.9 },
                 nato: { 
                     eta: [0.3, 0.4, 0.3],
@@ -194,9 +198,10 @@
         function App() {
             const [selectedBasin, setSelectedBasin] = useState(BASIN_CONSTANTS[1]);
             const [sandboxBLR, setSandboxBLR] = useState(BASIN_CONSTANTS[1].nato.blr);
-            const [envData, setEnvData] = useState({ meteo: null, flood: null, wb: null, news: [], firms: null });
+            const [envData, setEnvData] = useState({ meteo: null, flood: null, tuik: null, news: [], firms: null });
             const [loading, setLoading] = useState(false);
             const [alertLevel, setAlertLevel] = useState('NORMAL');
+            const [showMethodology, setShowMethodology] = useState(false);
             const mapInstance = useRef(null);
             const markersRef = useRef([]);
 
@@ -219,15 +224,14 @@
                 ];
 
                 const results = await Promise.allSettled([
-                    fetchWithProxy(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,precipitation,soil_moisture_0_to_7cm&daily=temperature_2m_max,precipitation_sum&timezone=auto`),
+                    fetchWithProxy(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,precipitation,soil_moisture_0_to_7cm,et0_fao_evapotranspiration,snowfall&daily=temperature_2m_max,precipitation_sum&timezone=auto`),
                     fetchWithProxy(`https://flood-api.open-meteo.com/v1/flood?latitude=${lat}&longitude=${lon}&daily=river_discharge`),
-                    fetchWithProxy(`https://api.worldbank.org/v2/country/${cc}/indicator/SP.POP.TOTL?format=json`),
                     fetchWithProxy(`https://firms.modaps.eosdis.nasa.gov/api/area/csv/0/MODIS_NRT/${lon-1},${lat-1},${lon+1},${lat+1}/1`),
                     ...newsSources.map(src => fetchWithProxy(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(src)}`))
                 ]);
 
                 let combinedNews = [];
-                results.slice(4).forEach(res => {
+                results.slice(3).forEach(res => {
                     if (res.status === 'fulfilled' && res.value?.items) {
                         combinedNews = [...combinedNews, ...res.value.items];
                     }
@@ -240,8 +244,8 @@
                 setEnvData({
                     meteo: results[0].status === 'fulfilled' ? results[0].value : null,
                     flood: results[1].status === 'fulfilled' ? results[1].value : null,
-                    wb: (results[2].status === 'fulfilled' && results[2].value?.[1]?.[0]) ? results[2].value[1][0].value : null,
-                    firms: results[3].status === 'fulfilled' ? results[3].value : null,
+                    tuik: basin.tuik_pop,
+                    firms: results[2].status === 'fulfilled' ? results[2].value : null,
                     news: uniqueNews
                 });
                 setLoading(false);
@@ -330,7 +334,10 @@
                         environmental_parameters: {
                             temperature_c: envData?.meteo?.current?.temperature_2m || "Veri Bulunamadı",
                             soil_moisture_pct: envData?.meteo?.current?.soil_moisture_0_to_7cm ? (envData.meteo.current.soil_moisture_0_to_7cm * 100).toFixed(1) : "Veri Bulunamadı",
-                            river_discharge_m3s: envData?.flood?.daily?.river_discharge?.[0] || "Veri Bulunamadı"
+                            river_discharge_m3s: envData?.flood?.daily?.river_discharge?.[0] || "Veri Bulunamadı",
+                            evapotranspiration_mm: envData?.meteo?.current?.et0_fao_evapotranspiration || "Veri Bulunamadı",
+                            snowfall_cm: envData?.meteo?.current?.snowfall || "Veri Bulunamadı",
+                            population_million: envData?.tuik || "Veri Bulunamadı"
                         },
                         simulated_nato_blr: sandboxBLR
                     };
@@ -356,7 +363,10 @@
                     txtContent += `[HİDRO-METEOROLOJİK PARAMETRELER]\n`;
                     txtContent += `- Güncel Sıcaklık: ${envData?.meteo?.current?.temperature_2m ?? 'Veri Bulunamadı'} °C\n`;
                     txtContent += `- Toprak Nemi Oranı: ${envData?.meteo?.current?.soil_moisture_0_to_7cm !== undefined ? (envData.meteo.current.soil_moisture_0_to_7cm * 100).toFixed(1) : 'Veri Bulunamadı'} %\n`;
-                    txtContent += `- Günlük Nehir Debisi: ${envData?.flood?.daily?.river_discharge?.[0] ?? 'Veri Bulunamadı'} m³/s\n\n`;
+                    txtContent += `- Günlük Nehir Debisi: ${envData?.flood?.daily?.river_discharge?.[0] ?? 'Veri Bulunamadı'} m³/s\n`;
+                    txtContent += `- Buharlaşma/Terleme (ET0): ${envData?.meteo?.current?.et0_fao_evapotranspiration ?? 'Veri Bulunamadı'} mm\n`;
+                    txtContent += `- Kar Yağışı Oranı: ${envData?.meteo?.current?.snowfall ?? 'Veri Bulunamadı'} cm\n`;
+                    txtContent += `- Nüfus (TÜİK): ${envData?.tuik ?? 'Veri Bulunamadı'} Milyon\n\n`;
                     txtContent += `[SİMÜLE EDİLEN NATO 7BLR (DİRENÇ) PARAMETRELERİ]\n`;
                     Object.entries(sandboxBLR).forEach(([k, v]) => {
                         txtContent += `- ${k}: ${v.toFixed(2)}\n`;
@@ -386,10 +396,6 @@
                         )
                     ),
                     React.createElement('div', { className: 'panel p-1.5 flex flex-col sm:flex-row items-stretch gap-2 w-full lg:w-auto', title: 'Analiz edilecek hidropolitik havzanın seçildiği operasyonel kontrol modülü.' },
-                        React.createElement('div', { className: 'px-4 py-2 flex flex-col justify-center' },
-                            React.createElement('span', { className: 'text-[10px] text-secondary uppercase font-bold' }, 'Aktif Operasyon Alanı'),
-                            React.createElement('span', { className: 'text-xs text-accent-bright font-medium' }, selectedBasin.name)
-                        ),
                         React.createElement('div', { className: 'relative flex gap-2' },
                             React.createElement('select', { 
                                 className: 'custom-select bg-panel-alt border border-main text-sm font-medium px-4 py-3 pr-10 outline-none hover:border-accent transition-all cursor-pointer text-[#000080] min-w-[200px]',
@@ -398,6 +404,11 @@
                                 title: 'Sistem kütüphanesindeki stratejik havzalar arasında geçiş yapınız.'
                             }, BASIN_CONSTANTS.map(b => React.createElement('option', { key: b.name, value: b.name }, b.name))),
                             React.createElement('div', { className: 'flex gap-1' },
+                                React.createElement('button', {
+                                    onClick: () => setShowMethodology(true),
+                                    className: 'bg-panel-alt border border-main text-xs font-medium px-3 py-3 outline-none hover:border-accent hover:text-accent transition-all cursor-pointer text-secondary',
+                                    title: 'Sistemin matematiksel altyapısını ve hesaplama yöntemlerini göster.'
+                                }, 'METODOLOJİ'),
                                 React.createElement('button', {
                                     onClick: () => exportReport('json'),
                                     className: 'bg-panel-alt border border-main text-xs font-medium px-3 py-3 outline-none hover:border-accent hover:text-accent transition-all cursor-pointer text-secondary',
@@ -408,6 +419,65 @@
                                     className: 'bg-panel-alt border border-main text-xs font-medium px-3 py-3 outline-none hover:border-accent hover:text-accent transition-all cursor-pointer text-secondary',
                                     title: 'Mevcut analitik durumu Düz Metin (TXT) formatında dışa aktar.'
                                 }, 'TXT')
+                            )
+                        )
+                    )
+                ),
+
+                // Metodoloji Modalı (Modal Katmanı) - Z-index değeri Leaflet haritasını aşacak şekilde z-[9999] olarak optimize edilmiştir.
+                showMethodology && React.createElement('div', { className: 'fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4' },
+                    React.createElement('div', { className: 'bg-panel border border-main rounded max-w-4xl w-full max-h-[90vh] overflow-y-auto p-8 relative shadow-2xl text-sm text-secondary' },
+                        React.createElement('button', {
+                            onClick: () => setShowMethodology(false),
+                            className: 'absolute top-6 right-6 text-secondary hover:text-danger text-2xl font-bold leading-none'
+                        }, '\u00D7'),
+                        
+                        React.createElement('h2', { className: 'text-xl font-bold text-accent mb-6 tracking-widest border-b border-main pb-4' }, 'SİSTEM METODOLOJİSİ VE MATEMATİKSEL ALTYAPI'),
+                        
+                        React.createElement('div', { className: 'space-y-6 text-justify leading-relaxed' },
+                            React.createElement('p', null, 'Sınıraşan Havzalar Karar Destek Sistemi (KDS), hidro-meteorolojik değişkenleri (çevresel stres) ve yapısal devlet kapasitelerini (kurumsal direnç) Çok Kriterli Karar Verme (MCDM) yaklaşımıyla sentezleyen hibrit bir analitik motordur. Çıktıların hesaplanmasında kullanılan matematiksel formülasyonlar ve teorik çerçeveler aşağıda detaylandırılmıştır.'),
+                            
+                            React.createElement('div', { className: 'space-y-2' },
+                                React.createElement('h3', { className: 'text-md font-bold text-white uppercase' }, '1. Bütünleşik Risk Skoru (vNato)'),
+                                React.createElement('p', null, 'Sistemin nihai kriz göstergesi olan $vNato$ skoru, [0, 1] aralığında normalize edilmiş bir endekstir. Yapısal zafiyetlerin %40, operasyonel çevresel risklerin %60 oranında ağırlıklandırıldığı ve dışsal şokların (OSINT, Termal Anomali) cezalandırma (penalty) faktörü olarak eklendiği bir algoritma ile hesaplanır:'),
+                                React.createElement('div', { className: 'bg-panel-alt p-4 rounded border border-main font-mono text-xs text-accent-bright my-2' }, 'vNato = (Yapısal_Bileşen * 0.40) + (Operasyonel_Bileşen * 0.60) + OSINT_Cezası + Termal_Ceza'),
+                                React.createElement('p', null, 'Hesaplama mimarisi, NATO\'nun sivil acil durum planlaması için belirlediği "7 Temel Direnç Gereksinimi" (7 Baseline Requirements for Resilience) standartlarına dayanmaktadır (NATO, 2016).')
+                            ),
+
+                            React.createElement('div', { className: 'space-y-2' },
+                                React.createElement('h3', { className: 'text-md font-bold text-white uppercase' }, '2. Su Stresi İndeksi (RSI)'),
+                                React.createElement('p', null, 'Göreceli Stres İndeksi (Relative Stress Index - RSI), havzanın su arz-talep asimetrisini ve iklimsel sapmaları ölçer (UNESCO, 2023). Formülasyondaki $f_{dyn}$ (dinamik frekans) değeri, Open-Meteo API\'sinden alınan anlık toprak nemi verisine göre gerçek zamanlı olarak güncellenir.'),
+                                React.createElement('div', { className: 'bg-panel-alt p-4 rounded border border-main font-mono text-xs text-accent-bright my-2' }, 'RSI = (Talep / Arz) * (1 - C_r) * (1 + \u03B1 * f_dyn)'),
+                                React.createElement('p', null, 'Burada $C_r$, kıyıdaş devletlerin suyu geri dönüştürme ve koruma kapasitesini (kurumsal adaptasyon); $\alpha$ ise havzanın iklim değişikliğine duyarlılık katsayısını temsil eder (Gleick, 2014).')
+                            ),
+
+                            React.createElement('div', { className: 'space-y-2' },
+                                React.createElement('h3', { className: 'text-md font-bold text-white uppercase' }, '3. İklim Riski ve Termal Kat Sayılar'),
+                                React.createElement('p', null, 'İklim riski ($vClim$), anlık maksimum sıcaklığın referans eşik değere (45°C) oranlanmasıyla elde edilir. Ayrıca, NASA FIRMS (Fire Information for Resource Management System) uydularından alınan verilerde ekstrem termal anomali tespit edilmesi halinde, sisteme doğrudan +0.05 oranında bir "Termal Ceza" eklenerek kinetik şoklar skorlanır.')
+                            ),
+
+                            React.createElement('div', { className: 'space-y-2' },
+                                React.createElement('h3', { className: 'text-md font-bold text-white uppercase' }, '4. Yapısal Zafiyet Skoru (blrSum)'),
+                                React.createElement('p', null, 'Kullanıcının "Senaryo Simülasyon Kum Havuzu" üzerinden manipüle ettiği 7BLR parametreleri, her bir alt sektörün (Hükümet, Enerji, Gıda/Su vb.) sistem içerisindeki dinamik ağırlığı ($\omega_i$) ile çarpılarak toplanır:'),
+                                React.createElement('div', { className: 'bg-panel-alt p-4 rounded border border-main font-mono text-xs text-accent-bright my-2' }, 'blrSum = \u03A3 [ \u03C9_i * (1 - Direnç_i) ]'),
+                                React.createElement('p', null, 'Sektörel direncin (Resilience) azalması, yapısal zafiyet skorunu artırarak kümülatif sistem riskini (vNato) kritik eşiğe taşır.')
+                            ),
+
+                            React.createElement('div', { className: 'space-y-2' },
+                                React.createElement('h3', { className: 'text-md font-bold text-white uppercase' }, '5. OSINT Veri Filtreleme'),
+                                React.createElement('p', null, 'Sistem, ReliefWeb, Google News ve Yahoo News gibi çoklu kaynaklardan gelen Açık Kaynak İstihbarat (OSINT) verilerini tarar. Çekilen haberlerin hacmi (sıklığı) algoritmik bir cezalandırma matrisine (OSINT_Penalty, maks: +0.20) dönüştürülerek psikolojik ve konjonktürel baskı hesaba katılır (Omand, Bartlett, & Miller, 2012).')
+                            ),
+
+                            React.createElement('div', { className: 'mt-8 pt-6 border-t border-gray-800' },
+                                React.createElement('h3', { className: 'text-sm font-bold text-white uppercase mb-4' }, 'Kaynaklar (APA 7)'),
+                                React.createElement('ul', { className: 'text-[11px] text-gray-500 space-y-3' },
+                                    React.createElement('li', { className: 'pl-4 -indent-4' }, 'Akgün, M., & Yıldız, D. (2021). Sınıraşan sular ve hidropolitik: Türkiye örneği. Su Politikaları Derneği Yayınları.'),
+                                    React.createElement('li', { className: 'pl-4 -indent-4' }, 'Gleick, P. H. (2014). Water, conflict, and peace in the Middle East. Environment: Science and Policy for Sustainable Development, 56(2), 3-14. https://doi.org/10.1080/00139157.2014.881696'),
+                                    React.createElement('li', { className: 'pl-4 -indent-4' }, 'NATO. (2016). Baseline requirements for resilience. Civil Emergency Planning Committee.'),
+                                    React.createElement('li', { className: 'pl-4 -indent-4' }, 'Omand, D., Bartlett, J., & Miller, C. (2012). Introducing social media intelligence (SOCMINT). Intelligence and National Security, 27(6), 801-823. https://doi.org/10.1080/02684527.2012.716965'),
+                                    React.createElement('li', { className: 'pl-4 -indent-4' }, 'Turban, E., Aronson, J. E., & Liang, T. P. (2005). Decision support systems and intelligent systems. Pearson Prentice Hall.'),
+                                    React.createElement('li', { className: 'pl-4 -indent-4' }, 'UNESCO. (2023). United Nations world water development report: Partnerships and cooperation for water. UN-Water.')
+                                )
                             )
                         )
                     )
@@ -449,14 +519,16 @@
                                 title: 'Açık kaynaklı hidro-meteorolojik ve demografik API verilerinin anlık gösterimi.'
                             },
                                 React.createElement('h3', { className: 'text-xs font-bold uppercase text-secondary mb-6 flex items-center gap-2' }, 
-                                    React.createElement('span', { className: 'w-2 h-2 bg-accent rounded-full' }), 'Havza Parametreleri'
+                                    React.createElement('span', { className: 'w-2 h-2 bg-accent rounded-full' }), 'Genişletilmiş Havza Parametreleri'
                                 ),
                                 loading ? React.createElement('div', { className: 'flex justify-center py-12' }, React.createElement('div', { className: 'spinner' })) :
-                                React.createElement('div', { className: 'grid grid-cols-2 gap-y-8 gap-x-4' },
+                                React.createElement('div', { className: 'grid grid-cols-2 gap-y-6 gap-x-4' },
                                     React.createElement(StatItem, { label: 'Sıcaklık', value: `${envData?.meteo?.current?.temperature_2m ?? '--'}°C`, tooltip: 'Open-Meteo veritabanından alınan güncel yüzey sıcaklık ölçümü.' }),
                                     React.createElement(StatItem, { label: 'Toprak Nemi', value: envData?.meteo?.current?.soil_moisture_0_to_7cm !== undefined ? `%${(envData.meteo.current.soil_moisture_0_to_7cm * 100).toFixed(1)}` : '--', tooltip: 'Tarımsal rekolte ve su stresi üzerindeki çevresel baskıyı gösteren güncel toprak nemi oranı.' }),
                                     React.createElement(StatItem, { label: 'Nehir Debisi', value: `${envData?.flood?.daily?.river_discharge?.[0] ?? '--'} m³/s`, tooltip: 'Hidrolojik akış kapasitesini ve taşkın/kuraklık riskini belirleyen günlük ortalama nehir debisi projeksiyonu.' }),
-                                    React.createElement(StatItem, { label: 'Nüfus Verisi', value: envData?.wb ? `${(envData.wb / 1e6).toFixed(1)}M` : '--', tooltip: 'Dünya Bankası (World Bank) veri setinden elde edilen güncel bölgesel demografik gösterge.' })
+                                    React.createElement(StatItem, { label: 'Nüfus (TÜİK)', value: envData?.tuik ? `${envData.tuik}M` : '--', tooltip: 'Türkiye İstatistik Kurumu (TÜİK) Adrese Dayalı Nüfus Kayıt Sistemi (ADNKS) güncel havza bölgesi verisi.' }),
+                                    React.createElement(StatItem, { label: 'Buharlaşma (ET0)', value: `${envData?.meteo?.current?.et0_fao_evapotranspiration ?? '--'} mm`, tooltip: 'Bitki örtüsü ve yüzeyden gerçekleşen su kaybını (evapotranspirasyon) ifade eden gösterge.' }),
+                                    React.createElement(StatItem, { label: 'Kar Yağışı', value: `${envData?.meteo?.current?.snowfall ?? '--'} cm`, tooltip: 'Havzanın menba bölgesindeki kar eriyik (snowmelt) projeksiyonu için kritik su besleme değeri.' })
                                 )
                             ),
                             React.createElement('div', { 
@@ -597,6 +669,7 @@
                         React.createElement('li', null, 'Gleick, P. H. (2014). Water, conflict, and peace in the Middle East. Environment: Science and Policy for Sustainable Development, 56(2), 3-14. https://doi.org/10.1080/00139157.2014.881696.'),
                         React.createElement('li', null, 'NATO. (2016). Baseline requirements for resilience. Civil Emergency Planning Committee.'),
                         React.createElement('li', null, 'Omand, D., Bartlett, J., & Miller, C. (2012). Introducing social media intelligence (SOCMINT). Intelligence and National Security, 27(6), 801-823. https://doi.org/10.1080/02684527.2012.716965.'),
+                        React.createElement('li', null, 'Türkiye İstatistik Kurumu [TÜİK]. (2025). Adrese Dayalı Nüfus Kayıt Sistemi (ADNKS) sonuçları. https://data.tuik.gov.tr'),
                         React.createElement('li', null, 'UNESCO. (2023). United Nations world water development report: Partnerships and cooperation for water. UN-Water.')
                     )
                 )
