@@ -191,11 +191,9 @@
 
         const clamp = (v) => isNaN(v) ? 0 : Math.max(0, Math.min(1, v));
         
-        const 6
-            = async (url, timeout = 15000) => {
+            const fetchWithProxy = async (url, timeout = 15000) => {
   // ÇOK KATMANLI VEKİL SUNUCU MİMARİSİ (Multi-Tier Proxy Fallback Architecture)
   // CORS engellerini aşmak için 8 farklı proxy stratejisi ve yedeklilik protokolü
-  const PROXIES = [
     // Tier 1: Doğrudan erişim (Direct access - CORS destekleyen API'ler için)
     { 
       name: 'Direct', 
