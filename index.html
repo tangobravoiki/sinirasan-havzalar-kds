@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SINIRAŞAN HAVZALAR | KDS v4.8</title>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <title>SINIRAŞAN HAVZALAR | KDS v4.9</title>    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -192,25 +191,149 @@
 
         const clamp = (v) => isNaN(v) ? 0 : Math.max(0, Math.min(1, v));
         
-        const fetchWithProxy = async (url, timeout = 15000) => {
-            const PROXIES = [
-                (u) => u,
-                (u) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
-                (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`
-            ];
-            for (const proxyFn of PROXIES) {
-                const controller = new AbortController();
-                const id = setTimeout(() => controller.abort(), timeout);
-                try {
-                    const response = await fetch(proxyFn(url), { signal: controller.signal });
-                    if (response.ok) {
-                        const data = await response.json();
-                        clearTimeout(id);
-                        return data.contents ? JSON.parse(data.contents) : data;
-                    }
-                } catch (e) { clearTimeout(id); continue; }
-            }
-            return null;
+        const 6
+            = async (url, timeout = 15000) => {
+  // ÇOK KATMANLI VEKİL SUNUCU MİMARİSİ (Multi-Tier Proxy Fallback Architecture)
+  // CORS engellerini aşmak için 8 farklı proxy stratejisi ve yedeklilik protokolü
+  const PROXIES = [
+    // Tier 1: Doğrudan erişim (Direct access - CORS destekleyen API'ler için)
+    { 
+      name: 'Direct', 
+      transform: (u) => u,
+      parseResponse: (r) => r.json()
+    },
+    
+    // Tier 2: AllOrigins (En güvenilir, JSON wrapper ile)
+    { 
+      name: 'AllOrigins', 
+      transform: (u) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+      parseResponse: async (r) => {
+        const data = await r.json();
+        return data.contents ? JSON.parse(data.contents) : data;
+      }
+    },
+    
+    // Tier 3: CORS Proxy IO
+    { 
+      name: 'CORSProxy.io', 
+      transform: (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+      parseResponse: (r) => r.json()
+    },
+    
+    // Tier 4: ThingProxy (Alternatif wrapper)
+    { 
+      name: 'ThingProxy', 
+      transform: (u) => `https://thingproxy.freeboard.io/fetch/${encodeURIComponent(u)}`,
+      parseResponse: (r) => r.json()
+    },
+    
+    // Tier 5: CodeTabs Proxy
+    { 
+      name: 'CodeTabs', 
+      transform: (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+      parseResponse: (r) => r.json()
+    },
+    
+    // Tier 6: JSONProxy (Farklı domain stratejisi)
+    { 
+      name: 'JSONProxy', 
+      transform: (u) => `https://jsonp.afeld.me/?url=${encodeURIComponent(u)}`,
+      parseResponse: (r) => r.json()
+    },
+    
+    // Tier 7: Proxy6 (Yedek alternatif)
+    { 
+      name: 'Proxy6', 
+      transform: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+      parseResponse: (r) => r.json()
+    },
+    
+    // Tier 8: Son çare - yaodax proxy
+    { 
+      name: 'Yaodax', 
+      transform: (u) => `https://yacdn.org/proxy/${encodeURIComponent(u)}`,
+      parseResponse: (r) => r.json()
+    }
+  ];
+  
+  // PARALEL DENEME STRATEJİSİ: İlk 3 proxy'yi paralel dene, diğerlerini sırayla
+  const parallelProxies = PROXIES.slice(0, 3);
+  const sequentialProxies = PROXIES.slice(3);
+  
+  // Paralel deneme fonksiyonu
+  const tryProxy = async (proxy) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    try {
+      const proxyUrl = proxy.transform(url);
+      console.log(`[KDS] Deneniyor: ${proxy.name} -> ${url.substring(0, 60)}...`);
+      
+      const response = await fetch(proxyUrl, { 
+        signal: controller.signal,
+        mode: 'cors',
+        cache: 'no-cache',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        const data = await proxy.parseResponse(response);
+        console.log(`[KDS] ✓ Başarılı: ${proxy.name}`);
+        return { success: true, data, source: proxy.name };
+      } else {
+        console.warn(`[KDS] ✗ HTTP ${response.status}: ${proxy.name}`);
+        return { success: false, error: `HTTP ${response.status}`, source: proxy.name };
+      }
+    } catch (error) {
+      clearTimeout(timeoutId);
+      const errorMsg = error.name === 'AbortError' ? 'Timeout' : error.message;
+      console.warn(`[KDS] ✗ Hata (${proxy.name}): ${errorMsg}`);
+      return { success: false, error: errorMsg, source: proxy.name };
+    }
+  };
+  
+  // PHASE 1: Paralel deneme (ilk 3 proxy aynı anda)
+  try {
+    const parallelResults = await Promise.race(
+      parallelProxies.map(proxy => tryProxy(proxy).then(result => 
+        result.success ? Promise.resolve(result) : Promise.reject(result)
+      ))
+    );
+    return parallelResults.data;
+  } catch (parallelError) {
+    console.warn('[KDS] Paralel denemeler başarısız, sıralı denemeye geçiliyor...');
+  }
+  
+  // PHASE 2: Sıralı deneme (kalan proxy'ler tek tek)
+  for (const proxy of sequentialProxies) {
+    const result = await tryProxy(proxy);
+    if (result.success) {
+      return result.data;
+    }
+  }
+  
+  // TÜM PROXY'LER BAŞARISIZ - Son bir direkt deneme
+  console.error(`[KDS] ✗✗✗ TÜM PROXY'LER BAŞARISIZ: ${url}`);
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const lastTry = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (lastTry.ok) {
+      console.log('[KDS] Son direkt deneme başarılı!');
+      return await lastTry.json();
+    }
+  } catch (finalError) {
+    console.error('[KDS] Son deneme de başarısız:', finalError.message);
+  }
+  
+  return null; // Tüm denemeler başarısız
+};
         };
 
         function App() {
